@@ -13,8 +13,9 @@ namespace ImageConverter
 {
 	public class CsvFileConverter
 	{
-		public const string RootImageFolderName = "images";
+		public const string RootImageFolderName  = "images";
 		public const string RootOutputFolderName = "out";
+		public const string OutputFileName       = "data.csv";
 		
 		public CsvFileConverter(string fileExtension)
 		{
@@ -31,44 +32,34 @@ namespace ImageConverter
 
 			if(fileInfo.Extension != FileExtension) return;
 
-			var bitmap = new Bitmap(fullFileName);
-
-			var folders = Regex
-				.Match(fullFileName, $@"{RootImageFolderName}.*")
-				.Value;
-
-			var dirName = folders.Substring(RootImageFolderName.Length + 1);
-
-			var d = Path.Combine(Environment.CurrentDirectory, RootOutputFolderName, dirName);
-			var outputDir = Directory
-				.GetParent(d)
-				.FullName;
+			var opencvMat = new Mat(fullFileName);
+			var outputDir = Path.Combine(Directory.GetCurrentDirectory(), RootOutputFolderName);
 
 			if(!Directory.Exists(outputDir))
 			{
 				Directory.CreateDirectory(outputDir);
 			}
 
-			var outputPath = GetCsvFilePath(outputDir);
+			var outputPath = Path.Combine(outputDir, OutputFileName);
+			
+			// Преобразование цветов в HSV модель
+			Cv2.CvtColor(opencvMat, opencvMat, ColorConversion.BgrToHsv);
 
-			if(File.Exists(outputPath)) return;
+			var sb = new StringBuilder();
 
-			AppendText(outputPath, "X,Y,R,G,B");
-
-			for(int x = 0; x < bitmap.Width; ++x)
+			for(int x = 0; x < opencvMat.Rows; x++)
 			{
-				for(int y = 0; y < bitmap.Height; ++y)
+				for(int y = 0; y < opencvMat.Cols; y++)
 				{
-					var pixel = bitmap.GetPixel(x, y);
-
-					AppendText(outputPath, $"{x},{y},{pixel.R},{pixel.G},{pixel.B}");
+					var pixel = opencvMat.At<Vec3b>(x, y);
+					// Интенсивность
+					sb.Append($"{pixel.Item1},");
 				}
 			}
-		}
 
-		public string GetCsvFilePath(string directory)
-		{
-			return Path.Combine(directory, (ImageCounter++).ToString() + ".csv");
+			sb.Append($"car{++ImageCounter}");
+
+			AppendText(outputPath, sb.ToString());
 		}
 
 		public void AppendText(string filename, string text)
